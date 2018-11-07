@@ -89,9 +89,7 @@ def main():
 
         global GameStateObj
         GameStateObj.update()
-        if GameStateObj.nextGameState != GameStateObj:
-            GameStateObj = GameStateObj.nextGameState
-            pygame.time.delay(100)
+        GameStateObj = GameStateObj.nextGameState
 
         # Display fps in screen
         if constants.VIEWFPS:
