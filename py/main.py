@@ -188,7 +188,7 @@ class Game:
         """
         keysPressed = pygame.key.get_pressed()
 
-        if keyBindings.checkPress('exit', keysPressed):
+        if keyBindings.checkPress('exit', keysPressed) or  (self.buttons[1]==True and constants.PADDLESPEED_ENABLED):
             self.nextGameState = MainMenu()
             # Note: score is not saved, gameover() is not called
             return
@@ -199,7 +199,7 @@ class Game:
             self.paddle.rect.x += constants.PADDLESPEED
 
         # (re)set ball location when pressing K_HOME (cheat)
-        if keyBindings.checkPress('restart', keysPressed):
+        if keyBindings.checkPress('restart', keysPressed) or (self.buttons[0]==True and constants.PADDLESPEED_ENABLED):
             self.playerBall.respawn()
 
         if keyBindings.checkPress('activate', keysPressed):
@@ -224,16 +224,23 @@ class Game:
                 newtilt_value=tilt_value*-1
 	
             self.oldx=self.newx
-            self.newx = int(newtilt_value*multiplier) + 400
+            self.newx = int(newtilt_value*multiplier) + 350
 
             if (self.oldx-self.newx > 100):
                 pass
             elif (self.oldx-self.newx < -100):
                 pass
-            elif (self.oldx-self.newx > 30):
-                self.paddle.rect.x -= 30
-            elif (self.oldx-self.newx < -30):
-                self.paddle.rect.x += 30
+            elif (self.oldx-self.newx > 40):
+                #self.newx -= 40
+                pass
+            elif (self.oldx-self.newx < -40):
+                #self.newx += 40
+                pass
+            elif (self.oldx-self.newx < 20 and self.oldx-self.newx > 0):
+                pass
+            elif (self.oldx-self.newx > -20 and self.oldx-self.newx < 0):
+                pass
+                        
             else:
 
                 if (self.newx > constants.WALLSIZE and (self.newx + self.paddle.width) < (constants.WINDOW_WIDTH - constants.WALLSIZE)):
@@ -254,6 +261,19 @@ class Game:
                 self.playerBall.update_bonus()
 
                 self.currentPowerUps.remove(p)
+
+    def fpgaCheck(self):
+        if constants.FPGA_ENABLED:
+            returnvals=connection.readData()
+            if constants.PADDLESPEED_ENABLED:
+                accelerometerValue = returnvals[0]
+                self.handleTiltMenu(accelerometerValue)
+            if constants.BUTTONS_ENABLED and (pygame.time.get_ticks()>(self.buttontime+100)):
+                self.buttontime=pygame.time.get_ticks()
+                self.previousbuttons = self.buttons
+                self.buttons = returnvals[1]
+            else:
+                self.buttons=(False,False) 
 
     def update(self):
         """
@@ -645,14 +665,14 @@ class MainMenu:
 
             print(self.newx)
 
-            if self.newx<200:
-                self.selectedItem = 0
-            if self.newx >=200 and self.newx < 400:
-                self.selectedItem = 1
-            if self.newx>=400 and self.newx < 600:
-                self.selectedItem = 2
-            if self.newx>=600:
-                self.selectedItem = 3
+            #if self.newx<200:
+            #    self.selectedItem = 0
+            #if self.newx >=200 and self.newx < 400:
+            #    self.selectedItem = 1
+            #if self.newx>=400 and self.newx < 600:
+            #    self.selectedItem = 2
+            #if self.newx>=600:
+            #    self.selectedItem = 3
 
     def handleKeys(self):
 
@@ -700,7 +720,7 @@ class MainMenu:
         self.menuItems[self.selectedItem] = self.highField(self.texts[self.selectedItem], self,
                                                            chosenfont=self.highlight)
 
-    def update(self):
+    def fpgaCheck(self):
         if constants.FPGA_ENABLED:
             returnvals=connection.readData()
             if constants.PADDLESPEED_ENABLED:
@@ -711,9 +731,13 @@ class MainMenu:
                 self.previousbuttons = self.buttons
                 self.buttons = returnvals[1]
             else:
-                self.buttons=(False,False)
+                self.buttons=(False,False)        
+
+    def update(self):
 
 
+
+        self.fpgaCheck()
         if not self.textinputenable:
             self.handleKeys()
 
@@ -778,6 +802,8 @@ class HighScores:
         scores = sensordb.get_scores()
         self.pages = sensordb.get_pages()
         # print('number of pages:' + str(self.pages) )
+        self.buttons=(False,False)
+        self.buttontime=0
         self.rows = [None]*constants.SHOW
         for x in range(0, len(scores)):
             # print('concat is: '+ scores[x][0] + ' ' + str(scores[x][1]))
@@ -812,12 +838,12 @@ class HighScores:
     def handleKeys(self):
         key_down = pygame.event.get(pygame.KEYDOWN)
 
-        if keyBindings.checkDown('exit', key_down):
+        if keyBindings.checkDown('exit', key_down)or (self.buttons[0]==True and self.buttons[1]==True):
             self.nextGameState = MainMenu()
             # pygame.time.delay(500)
             return
 
-        if keyBindings.checkDown('left', key_down):
+        if keyBindings.checkDown('left', key_down) or self.buttons[0]==True:
             if self.window == 0:
                 self.nextGameState = MainMenu()
             else:
@@ -828,7 +854,7 @@ class HighScores:
                     self.rows[x] = self.highField('{:<9.9s}   {:>4d}'
                                                   .format(scores[x][0], scores[x][1]), self)
 
-        if keyBindings.checkDown('right', key_down):
+        if keyBindings.checkDown('right', key_down)or self.buttons[1]==True:
             sumNone = sum(x is None for x in self.rows)
             if sumNone != 0:
                 pass
@@ -840,7 +866,20 @@ class HighScores:
                     self.rows[x] = self.highField('{:<9.9s}   {:>4d}'
                                                   .format(scores[x][0], scores[x][1]), self)
 
+
+                
     def update(self):
+        if constants.FPGA_ENABLED:
+            returnvals=connection.readData()
+            if constants.PADDLESPEED_ENABLED:
+                accelerometerValue = returnvals[0]
+                #self.handleTiltMenu(accelerometerValue)
+            if constants.BUTTONS_ENABLED and (pygame.time.get_ticks()>(self.buttontime+100)):
+                self.buttontime=pygame.time.get_ticks()
+                self.previousbuttons = self.buttons
+                self.buttons = returnvals[1]
+            else:
+                self.buttons=(False,False)        
         self.handleKeys()
 
         Screen.fill(constants.colors["BLACK"])
@@ -883,10 +922,26 @@ class GameOver:
         self.high_text = 'New Highscore!'
 
         self.nextGameState = self
+        self.buttons=(False,False)
+        self.buttontime=0
 
         self.ishighscore = ishighscore
 
+    def fpgaCheck(self):
+        if constants.FPGA_ENABLED:
+            returnvals=connection.readData()
+            if constants.PADDLESPEED_ENABLED:
+                accelerometerValue = returnvals[0]
+                #self.handleTiltMenu(accelerometerValue)
+            if constants.BUTTONS_ENABLED and (pygame.time.get_ticks()>(self.buttontime+100)):
+                self.buttontime=pygame.time.get_ticks()
+                self.previousbuttons = self.buttons
+                self.buttons = returnvals[1]
+            else:
+                self.buttons=(False,False) 
+
     def update(self):
+        self.fpgaCheck()
         self.handleKeys()
 
         Screen.fill(constants.colors['BLACK'])
@@ -914,11 +969,11 @@ class GameOver:
 
         key_down = pygame.event.get(pygame.KEYDOWN)
 
-        if keyBindings.checkDown('activate', key_down):
+        if keyBindings.checkDown('activate', key_down) or self.buttons[0]==True:
             self.nextGameState = Game()
             return
 
-        if keyBindings.checkDown('exit', key_down):
+        if keyBindings.checkDown('exit', key_down) or self.buttons[1]==True:
             self.nextGameState = MainMenu()
             return
 
